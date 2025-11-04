@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.2
+  # L'environnement SDK est conservé comme demandé
+  sdk: ^3.7.2 
 
 dependencies:
   flutter:
@@ -13,14 +14,22 @@ dependencies:
   path: ^1.9.0
   cupertino_icons: ^1.0.8
   image_picker: ^1.0.4
+  
+  # 👇 NOUVEAU : Dépendances pour la Persistance
+  drift: ^2.21.0 # Base de données (version utilisée dans l'exemple de configuration)
+  sqlite3_flutter_libs: ^0.5.26 # Pour inclure la bibliothèque SQLite native
+  path_provider: ^2.1.3 # Pour trouver le répertoire de stockage de la DB (requis pour Drift)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  
+  # 👇 NOUVEAU : Dépendances pour la Génération de Code (drift_dev et build_runner)
+  drift_dev: ^2.21.0 # Générateur de code
+  build_runner: ^2.4.9 # Outil d'exécution du générateur
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/images/

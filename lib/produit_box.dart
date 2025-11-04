@@ -3,25 +3,24 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:productapp/model/produit.dart'; // Import de la classe Produit
+import 'package:productapp/data/base.dart'; // Importe la classe Produit générée
 
 class ProduitBox extends StatelessWidget {
   final Produit produit;
-  final Function(bool?)? onChanged;
+  final Function(bool?)? onChanged; // Maintenu, mais ignoré/null dans la liste
   final VoidCallback delProduit;
-  final VoidCallback onTap; // Ajout de la fonction onTap
+  final VoidCallback onTap; 
 
   const ProduitBox({
     super.key,
     required this.produit,
     this.onChanged,
     required this.delProduit,
-    required this.onTap, // Requis
+    required this.onTap, 
   });
 
   @override
   Widget build(BuildContext context) {
-    // Détermine l'ImageProvider (fichier ou placeholder)
     final bool hasPhoto = produit.photo != null && File(produit.photo!).existsSync();
     final imageProvider = hasPhoto
         ? FileImage(File(produit.photo!)) as ImageProvider<Object>
@@ -30,7 +29,6 @@ class ProduitBox extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: Slidable(
-        // ... ActionPane pour la suppression (Glissement)
         endActionPane: ActionPane(
           motion: const StretchMotion(),
           children: [
@@ -43,21 +41,20 @@ class ProduitBox extends StatelessWidget {
           ],
         ),
         
-        // Contenu principal du produit (gestion du tap)
-        child: InkWell( // Remplacé Container par InkWell pour l'effet de tap
+        child: InkWell( 
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.yellow,
               borderRadius: BorderRadius.circular(15),
             ),
-            height: 80, // Hauteur ajustée
+            height: 80, 
             child: Row(
               children: [
-                // Checkbox pour la sélection
-                Checkbox(value: produit.isSelected, onChanged: onChanged),
+                // 🛑 CHECKBOX RETIRÉE car isSelected n'existe plus dans le modèle Drift
+                // Si la sélection est nécessaire, une logique d'état local doit être implémentée.
 
-                // Affichage de la photo (Point 4)
+                // Affichage de la photo
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: Container(
@@ -73,16 +70,16 @@ class ProduitBox extends StatelessWidget {
                   ),
                 ),
                 
-                // Affichage du libellé (Point 4)
+                // Affichage du libellé
                 Expanded(
                   child: Text(
-                    produit.libelle ?? 'Sans Libellé',
+                    produit.libelle, 
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 
-                // (Optionnel) Ajout d'une flèche pour indiquer l'action
+                // Flèche pour l'action
                 const Padding(
                   padding: EdgeInsets.only(right: 12.0),
                   child: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),

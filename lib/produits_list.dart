@@ -2,97 +2,75 @@
 
 import 'package:flutter/material.dart';
 import 'package:productapp/produit_box.dart';
-import 'package:productapp/add_produit_form.dart'; // Utilisation du formulaire complet
-import 'package:productapp/model/produit.dart';
-import 'package:productapp/produit_details.dart'; // Import de la page de détails
+import 'package:productapp/add_produit_form.dart'; 
+import 'package:productapp/produit_details.dart'; 
+import 'package:productapp/dao/produit_dao.dart'; // Le DAO
+import 'package:productapp/data/base.dart'; // Le modèle Produit généré par Drift
 
-class ProduitsList extends StatefulWidget {
-  const ProduitsList({super.key});
+class ProduitsList extends StatelessWidget {
+  final ProduitDAO produitDAO;
 
-  @override
-  State<ProduitsList> createState() => _ProduitsListState();
-}
+  const ProduitsList({super.key, required this.produitDAO});
 
-class _ProduitsListState extends State<ProduitsList> {
-
-  // La liste doit être vide initialement, comme spécifié
-  List<Produit> liste = []; 
-
-  // ... (Fonctions onChanged, saveProduit, delProduit, delSelectedProduits, addProduit inchangées du dernier guide) ...
-  
-  // Fonction saveProduit mise à jour pour le produit venant du formulaire
-  void saveProduit(Produit nouveauProduit) {
-    setState(() {
-      liste.add(nouveauProduit); 
-    });
-  }
-
-  void addProduit() {
+  void addProduit(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AddProduitForm(onSubmit: saveProduit), 
+        builder: (context) => AddProduitForm(
+          produitDAO: produitDAO, 
+        ),
       ),
     );
   }
-  
-  void onChanged(bool? value, int index) {
-    setState(() {
-      liste[index].isSelected = value ?? false;
-    });
+
+  void delProduit(int id) {
+    produitDAO.deleteProduitById(id);
   }
   
-  void delProduit(int index) {
-    setState(() {
-      liste.removeAt(index);
-    });
-  }
-
-  void delSelectedProduits() {
-    setState(() {
-      liste.removeWhere((produit) => produit.isSelected);
-    });
-  }
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gestion des Produits"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep),
-            onPressed: delSelectedProduits, 
-            tooltip: 'Supprimer la sélection',
-          ),
-        ],
+        title: const Text("Liste des Produits"),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: addProduit,
+        onPressed: () => addProduit(context),
         child: const Icon(Icons.add),
       ),
-      body: liste.isEmpty
-          ? const Center(child: Text("Aucun produit. Ajoutez-en un !")) // Message si la liste est vide
-          : ListView.builder(
-              itemCount: liste.length,
-              itemBuilder: (context, index) {
-                final produit = liste[index]; 
-                return ProduitBox(
-                  produit: produit, 
-                  onChanged: (value) => onChanged(value, index),
-                  delProduit: () => delProduit(index),
-                  // Point 5 : Navigation vers la page de détails lors du tap
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProduitDetails(produit: produit),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+      
+      body: StreamBuilder<List<Produit>>(
+        stream: produitDAO.getProduitsStream(), // Stream du DAO
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          final List<Produit> liste = snapshot.data ?? [];
+
+          if (liste.isEmpty) {
+            return const Center(child: Text("Aucun produit n'est disponible."));
+          }
+
+          return ListView.builder(
+            itemCount: liste.length,
+            itemBuilder: (context, index) {
+              final produit = liste[index]; 
+              return ProduitBox(
+                produit: produit, 
+                onChanged: null, // isSelected retiré
+                delProduit: () => delProduit(produit.id),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProduitDetails(produit: produit),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

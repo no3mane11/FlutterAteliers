@@ -1,14 +1,29 @@
-// /lib/add_produit_form.dart
+// lib/add_produit_form.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:productapp/model/produit.dart'; // Importez votre classe Produit
+import 'package:path_provider/path_provider.dart' as syspaths;
+import 'package:path/path.dart' as path; 
+
+// Imports pour la DB
+import 'package:productapp/data/base.dart'; // Modèle Produit généré
+import 'package:productapp/dao/produit_dao.dart'; // Le DAO
+import 'package:drift/drift.dart' as d; // Alias pour les inserts
+
+// CLASSE DE SAISIE SIMPLE (remplace l'ancien modèle Produit pour les données de formulaire)
+class ProduitSaisie {
+  String? libelle;
+  String? description;
+  double? prix;
+
+  ProduitSaisie.empty() : prix = 0.0;
+}
 
 class AddProduitForm extends StatefulWidget {
-  final Function(Produit) onSubmit;
+  final ProduitDAO produitDAO; 
 
-  const AddProduitForm({super.key, required this.onSubmit});
+  const AddProduitForm({super.key, required this.produitDAO});
 
   @override
   State<AddProduitForm> createState() => _AddProduitFormState();
@@ -16,40 +31,54 @@ class AddProduitForm extends StatefulWidget {
 
 class _AddProduitFormState extends State<AddProduitForm> {
   final _formKey = GlobalKey<FormState>();
-  final _produit = Produit.empty(); // Instance de produit vide
-  String? _pickedImagePath;
+  final _produitSaisi = ProduitSaisie.empty(); 
+  
+  String? _pickedImagePath; // Chemin permanent de l'image
+  File? _storedImage; 
 
-  // Méthode pour sélectionner une image
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
     if (pickedFile == null) return;
+    final File imageFile = File(pickedFile.path);
+
+    final appDir = await syspaths.getApplicationDocumentsDirectory();
+    final fileName = path.basename(pickedFile.path); 
+    final permanentPath = '${appDir.path}/$fileName';
+    final File savedImage = await imageFile.copy(permanentPath);
 
     setState(() {
-      _pickedImagePath = pickedFile.path;
+      _pickedImagePath = savedImage.path;
+      _storedImage = savedImage;
     });
   }
 
-  // Méthode pour enregistrer le produit
-  void _saveProduit() {
+  void _saveProduit() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // Complète les champs qui ne sont pas dans le formulaire
-      _produit.photo = _pickedImagePath;
-      _produit.id = DateTime.now().millisecondsSinceEpoch.toString();
 
-      widget.onSubmit(_produit);
+      // Création du companion (objet d'insertion Drift)
+      final newEntry = ProduitsCompanion(
+        libelle: d.Value(_produitSaisi.libelle!),
+        description: d.Value(_produitSaisi.description),
+        prix: d.Value(_produitSaisi.prix!),
+        photo: d.Value(_pickedImagePath), // Le chemin permanent
+      );
+
+      await widget.produitDAO.insertProduit(newEntry);
+      
       Navigator.of(context).pop();
     }
   }
 
-  // Méthode pour réinitialiser le formulaire
   void _resetForm() {
     _formKey.currentState!.reset();
     setState(() {
       _pickedImagePath = null;
-      // Note: Vous pourriez vouloir réinitialiser l'objet _produit ici aussi si nécessaire
+      _storedImage = null; 
+      _produitSaisi.libelle = null;
+      _produitSaisi.description = null;
+      _produitSaisi.prix = 0.0;
     });
   }
 
@@ -63,7 +92,7 @@ class _AddProduitFormState extends State<AddProduitForm> {
           key: _formKey,
           child: Column(
             children: [
-              // Sélecteur d'image (GestureDetector)
+              // Sélecteur d'image 
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -75,67 +104,43 @@ class _AddProduitFormState extends State<AddProduitForm> {
                     shape: BoxShape.circle,
                     image: DecorationImage(
                       fit: BoxFit.cover,
-                      image: _pickedImagePath != null
-                          ? FileImage(File(_pickedImagePath!)) as ImageProvider<Object>
-                          : const AssetImage('assets/images/placeholder.jpg'),
+                      image: _storedImage != null
+                          ? FileImage(_storedImage!) as ImageProvider<Object>
+                          : const AssetImage('assets/images/produit1.jpeg'),
                     ),
                   ),
                 ),
               ),
 
-              // 1. Champ Libellé
-              TextFormField(
+              // Champs de formulaire
+              TextFormField( 
                 decoration: const InputDecoration(labelText: 'Libellé'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez saisir le libellé';
-                  }
-                  return null;
-                },
-                onSaved: (value) => _produit.libelle = value,
+                validator: (value) => value == null || value.isEmpty ? 'Entrez un libellé.' : null,
+                onSaved: (value) => _produitSaisi.libelle = value,
               ),
-              // 2. Champ Description
-              TextFormField(
+              TextFormField( 
                 decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez saisir la description';
-                  }
-                  return null;
-                },
-                onSaved: (value) => _produit.description = value,
+                onSaved: (value) => _produitSaisi.description = value,
               ),
-              // 3. Champ Prix
-              TextFormField(
+              TextFormField( 
                 decoration: const InputDecoration(labelText: 'Prix'),
                 keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez saisir le prix';
-                  }
-                  // Ajout d'une validation simple pour le format numérique
-                  if (double.tryParse(value) == null) {
-                     return 'Le prix doit être un nombre valide';
-                  }
-                  return null;
-                },
-                onSaved: (value) => _produit.prix = double.parse(value!),
+                validator: (value) => value == null || double.tryParse(value) == null ? 'Entrez un prix valide.' : null,
+                onSaved: (value) => _produitSaisi.prix = double.parse(value!),
               ),
-
-              // Boutons d'action (Row)
+              
+              // Boutons d'action
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Bouton Réinitialiser
                     TextButton.icon(
                       onPressed: _resetForm,
                       icon: const Icon(Icons.restore_from_trash_rounded),
                       label: const Text('Réinitialiser'),
                     ),
                     const SizedBox(width: 12),
-                    // Bouton Enregistrer
                     ElevatedButton(
                       onPressed: _saveProduit,
                       child: const Text('Enregistrer'),

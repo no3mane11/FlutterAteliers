@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:productapp/model/produit.dart'; // Assurez-vous d'avoir le bon chemin vers produit.dart
+import 'package:productapp/data/base.dart'; // Utilise le modèle Produit généré par Drift
 
 class ProduitDetails extends StatelessWidget {
   final Produit produit;
@@ -11,13 +11,15 @@ class ProduitDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Vérification pour l'affichage de l'image
     final bool hasPhoto = produit.photo != null && File(produit.photo!).existsSync();
+    final imageProvider = hasPhoto
+        ? FileImage(File(produit.photo!)) as ImageProvider<Object>
+        : const AssetImage('assets/images/produit1.jpeg');
     
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          produit.libelle ?? 'Détails du Produit',
+          produit.libelle,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
@@ -28,7 +30,7 @@ class ProduitDetails extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Affichage de l'image ou d'un placeholder
+              // Affichage de l'image
               Container(
                 height: 160,
                 width: 160,
@@ -36,9 +38,7 @@ class ProduitDetails extends StatelessWidget {
                   shape: BoxShape.circle,
                   image: DecorationImage(
                     fit: BoxFit.cover,
-                    image: hasPhoto
-                        ? FileImage(File(produit.photo!)) as ImageProvider<Object>
-                        : const AssetImage('assets/images/produit1.jpeg'),
+                    image: imageProvider,
                   ),
                 ),
               ),
@@ -46,14 +46,14 @@ class ProduitDetails extends StatelessWidget {
               
               // Affichage du Prix
               Text(
-                'Prix: ${produit.prix?.toStringAsFixed(2) ?? 'N/A'} €',
+                'Prix: ${produit.prix.toStringAsFixed(2)} €', 
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               
               // Affichage de la Description
               Text(
-                'Description: ${produit.description ?? 'Non fournie'}',
+                'Description: ${produit.description ?? 'Non fournie'}', 
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),
