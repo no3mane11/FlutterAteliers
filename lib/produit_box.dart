@@ -9,26 +9,24 @@ import 'package:productapp/data/base.dart'; // Modèle Produit généré par Dri
 class ProduitBox extends StatelessWidget {
   final Produit produit;
   final Function(bool?)? onChanged;
-  final VoidCallback delProduit;
-  final VoidCallback onTap;
+  final VoidCallback? delProduit; // nullable maintenant
+  final VoidCallback? onTap; // nullable pour plus de flexibilité
 
   const ProduitBox({
     super.key,
     required this.produit,
     this.onChanged,
-    required this.delProduit,
-    required this.onTap,
+    this.delProduit,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // ✅ On n’utilise File/existsSync que si on N’EST PAS sur le web
+    // On n’utilise File/existsSync que si on N’EST PAS sur le web
     bool hasPhoto = false;
     ImageProvider imageProvider;
 
-    if (!kIsWeb &&
-        produit.photo != null &&
-        produit.photo!.isNotEmpty) {
+    if (!kIsWeb && produit.photo != null && produit.photo!.isNotEmpty) {
       final file = File(produit.photo!);
       if (file.existsSync()) {
         hasPhoto = true;
@@ -44,17 +42,26 @@ class ProduitBox extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: Slidable(
-        endActionPane: ActionPane(
-          motion: const StretchMotion(),
-          children: [
-            SlidableAction(
-              onPressed: (context) => delProduit(),
-              icon: Icons.delete,
-              backgroundColor: Colors.red,
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ],
-        ),
+        // Si delProduit est null, on garde le Slidable mais sans action delete
+        endActionPane: delProduit != null
+            ? ActionPane(
+                motion: const StretchMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (context) {
+                      // on appelle delProduit si il existe
+                      if (delProduit != null) delProduit!();
+                    },
+                    icon: Icons.delete,
+                    backgroundColor: Colors.red,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ],
+              )
+            : const ActionPane(
+                motion: StretchMotion(),
+                children: [], // pas d'actions
+              ),
         child: InkWell(
           onTap: onTap,
           child: Container(

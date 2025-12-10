@@ -1,7 +1,10 @@
 // lib/login_ecran.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'dao/produit_dao.dart';
 import 'produits_list.dart';
@@ -22,11 +25,43 @@ class _LoginEcranState extends State<LoginEcran> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  StreamSubscription<User?>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Écoute les changements d'authentification pour créer le document users/{uid} au premier login
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        _createUserDocIfNotExists(user);
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _createUserDocIfNotExists(User user) async {
+    try {
+      final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final snapshot = await userDocRef.get();
+      if (!snapshot.exists) {
+        await userDocRef.set({
+          'email': user.email ?? '',
+          'displayName': user.displayName ?? '',
+          'isAdmin': false,
+        });
+      }
+    } catch (e) {
+      // On n'interrompt pas l'app si la création échoue, mais on peut logguer l'erreur.
+      // (Optionnel : afficher un snackbar si tu veux prévenir l'utilisateur)
+      // print('Erreur lors de la création du document user: $e');
+    }
   }
 
   Future<void> _signInOrSignUp() async {
@@ -58,7 +93,8 @@ class _LoginEcranState extends State<LoginEcran> {
         email: email,
         password: password,
       );
-      // Si ça réussit, l'utilisateur est connecté automatiquement
+      // Si la création réussit, l'utilisateur sera connecté automatiquement :
+      // notre listener authStateChanges va créer le document users/{uid} si besoin.
     } on FirebaseAuthException catch (e) {
       // 2) Si l'email existe déjà, on tente la connexion
       if (e.code == 'email-already-in-use') {
@@ -67,6 +103,7 @@ class _LoginEcranState extends State<LoginEcran> {
             email: email,
             password: password,
           );
+          // à la connexion, le listener authStateChanges s'occupera du document user si besoin.
         } on FirebaseAuthException catch (e2) {
           setState(() {
             if (e2.code == 'wrong-password') {
