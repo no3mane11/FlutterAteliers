@@ -1,60 +1,77 @@
 // lib/produit_box.dart
 
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:productapp/data/base.dart'; // Importe la classe Produit générée
+import 'package:productapp/data/base.dart'; // Modèle Produit généré par Drift
 
 class ProduitBox extends StatelessWidget {
   final Produit produit;
-  final Function(bool?)? onChanged; // Maintenu, mais ignoré/null dans la liste
-  final VoidCallback delProduit;
-  final VoidCallback onTap; 
+  final Function(bool?)? onChanged;
+  final VoidCallback? delProduit; // nullable maintenant
+  final VoidCallback? onTap; // nullable pour plus de flexibilité
 
   const ProduitBox({
     super.key,
     required this.produit,
     this.onChanged,
-    required this.delProduit,
-    required this.onTap, 
+    this.delProduit,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool hasPhoto = produit.photo != null && File(produit.photo!).existsSync();
-    final imageProvider = hasPhoto
-        ? FileImage(File(produit.photo!)) as ImageProvider<Object>
-        : const AssetImage('assets/images/produit1.jpeg');
+    // On n’utilise File/existsSync que si on N’EST PAS sur le web
+    bool hasPhoto = false;
+    ImageProvider imageProvider;
+
+    if (!kIsWeb && produit.photo != null && produit.photo!.isNotEmpty) {
+      final file = File(produit.photo!);
+      if (file.existsSync()) {
+        hasPhoto = true;
+        imageProvider = FileImage(file);
+      } else {
+        imageProvider = const AssetImage('assets/images/produit1.jpeg');
+      }
+    } else {
+      // Sur le web ou si pas de chemin → image par défaut
+      imageProvider = const AssetImage('assets/images/produit1.jpeg');
+    }
 
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: Slidable(
-        endActionPane: ActionPane(
-          motion: const StretchMotion(),
-          children: [
-            SlidableAction(
-              onPressed: (context) => delProduit(),
-              icon: Icons.delete,
-              backgroundColor: Colors.red,
-              borderRadius: BorderRadius.circular(15), 
-            ),
-          ],
-        ),
-        
-        child: InkWell( 
+        // Si delProduit est null, on garde le Slidable mais sans action delete
+        endActionPane: delProduit != null
+            ? ActionPane(
+                motion: const StretchMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (context) {
+                      // on appelle delProduit si il existe
+                      if (delProduit != null) delProduit!();
+                    },
+                    icon: Icons.delete,
+                    backgroundColor: Colors.red,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ],
+              )
+            : const ActionPane(
+                motion: StretchMotion(),
+                children: [], // pas d'actions
+              ),
+        child: InkWell(
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.yellow,
               borderRadius: BorderRadius.circular(15),
             ),
-            height: 80, 
+            height: 80,
             child: Row(
               children: [
-                // 🛑 CHECKBOX RETIRÉE car isSelected n'existe plus dans le modèle Drift
-                // Si la sélection est nécessaire, une logique d'état local doit être implémentée.
-
-                // Affichage de la photo
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10.0),
                   child: Container(
@@ -69,20 +86,23 @@ class ProduitBox extends StatelessWidget {
                     ),
                   ),
                 ),
-                
-                // Affichage du libellé
                 Expanded(
                   child: Text(
-                    produit.libelle, 
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    produit.libelle,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                
-                // Flèche pour l'action
                 const Padding(
                   padding: EdgeInsets.only(right: 12.0),
-                  child: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
                 ),
               ],
             ),

@@ -1,19 +1,24 @@
-// lib/main.dart (Version Corrigée)
+// lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:productapp/data/base.dart'; // La base de données
-import 'package:productapp/dao/produit_dao.dart'; // Le DAO
-import 'package:productapp/produits_list.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
-  // Garantit que les widgets binding sont initialisés avant d'ouvrir la DB
+import 'data/firebase_options.dart';
+import 'data/base.dart';
+import 'dao/produit_dao.dart';
+import 'login_ecran.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialisation de la base de données
-  final database = ProduitsDatabase(); 
-  
-  // Initialisation du DAO
-  final produitDAO = ProduitDAO(database); 
+
+  // Initialisation de Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialisation de ta base locale + DAO
+  final database = ProduitsDatabase();
+  final produitDAO = ProduitDAO(database);
 
   runApp(MyApp(produitDAO: produitDAO));
 }
@@ -27,11 +32,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gestion de Produits',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      // Passe le DAO à la liste des produits
-      home: ProduitsList(produitDAO: produitDAO),
+      // On commence toujours par l’écran de login
+      home: LoginEcran(produitDAO: produitDAO),
     );
   }
 }
