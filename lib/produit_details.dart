@@ -1,8 +1,9 @@
 // lib/produit_details.dart
 
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:productapp/model/produit.dart'; // Assurez-vous d'avoir le bon chemin vers produit.dart
+import 'package:productapp/data/base.dart';
 
 class ProduitDetails extends StatelessWidget {
   final Produit produit;
@@ -11,13 +12,25 @@ class ProduitDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Vérification pour l'affichage de l'image
-    final bool hasPhoto = produit.photo != null && File(produit.photo!).existsSync();
-    
+    ImageProvider imageProvider;
+
+    if (!kIsWeb &&
+        produit.photo != null &&
+        produit.photo!.isNotEmpty) {
+      final file = File(produit.photo!);
+      if (file.existsSync()) {
+        imageProvider = FileImage(file);
+      } else {
+        imageProvider = const AssetImage('assets/images/produit1.jpeg');
+      }
+    } else {
+      imageProvider = const AssetImage('assets/images/produit1.jpeg');
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          produit.libelle ?? 'Détails du Produit',
+          produit.libelle,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
@@ -28,7 +41,6 @@ class ProduitDetails extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Affichage de l'image ou d'un placeholder
               Container(
                 height: 160,
                 width: 160,
@@ -36,24 +48,18 @@ class ProduitDetails extends StatelessWidget {
                   shape: BoxShape.circle,
                   image: DecorationImage(
                     fit: BoxFit.cover,
-                    image: hasPhoto
-                        ? FileImage(File(produit.photo!)) as ImageProvider<Object>
-                        : const AssetImage('assets/images/produit1.jpeg'),
+                    image: imageProvider,
                   ),
                 ),
               ),
               const SizedBox(height: 30),
-              
-              // Affichage du Prix
               Text(
-                'Prix: ${produit.prix?.toStringAsFixed(2) ?? 'N/A'} €',
+                'Prix : ${produit.prix.toStringAsFixed(2)} €',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              
-              // Affichage de la Description
               Text(
-                'Description: ${produit.description ?? 'Non fournie'}',
+                'Description : ${produit.description ?? 'Non fournie'}',
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),

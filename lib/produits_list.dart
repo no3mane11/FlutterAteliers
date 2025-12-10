@@ -1,98 +1,106 @@
 // lib/produits_list.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:productapp/produit_box.dart';
-import 'package:productapp/add_produit_form.dart'; // Utilisation du formulaire complet
-import 'package:productapp/model/produit.dart';
-import 'package:productapp/produit_details.dart'; // Import de la page de détails
+import 'package:productapp/add_produit_form.dart';
+import 'package:productapp/produit_details.dart';
 
-class ProduitsList extends StatefulWidget {
-  const ProduitsList({super.key});
+import 'package:productapp/dao/produit_dao.dart'; // encore passé en param, mais plus utilisé
+import 'package:productapp/data/base.dart';      // on réutilise la classe Produit (Drift) comme "model"
 
-  @override
-  State<ProduitsList> createState() => _ProduitsListState();
-}
+class ProduitsList extends StatelessWidget {
+  final ProduitDAO produitDAO;
 
-class _ProduitsListState extends State<ProduitsList> {
+  const ProduitsList({super.key, required this.produitDAO});
 
-  // La liste doit être vide initialement, comme spécifié
-  List<Produit> liste = []; 
-
-  // ... (Fonctions onChanged, saveProduit, delProduit, delSelectedProduits, addProduit inchangées du dernier guide) ...
-  
-  // Fonction saveProduit mise à jour pour le produit venant du formulaire
-  void saveProduit(Produit nouveauProduit) {
-    setState(() {
-      liste.add(nouveauProduit); 
-    });
-  }
-
-  void addProduit() {
+  void addProduit(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AddProduitForm(onSubmit: saveProduit), 
+        builder: (context) => AddProduitForm(
+          produitDAO: produitDAO, // param gardé pour compatibilité, mais ignoré dans le form
+        ),
       ),
     );
   }
-  
-  void onChanged(bool? value, int index) {
-    setState(() {
-      liste[index].isSelected = value ?? false;
-    });
-  }
-  
-  void delProduit(int index) {
-    setState(() {
-      liste.removeAt(index);
-    });
-  }
 
-  void delSelectedProduits() {
-    setState(() {
-      liste.removeWhere((produit) => produit.isSelected);
-    });
+  Future<void> _deleteProduit(String docId) async {
+    await FirebaseFirestore.instance
+        .collection('produits')
+        .doc(docId)
+        .delete();
   }
-
 
   @override
   Widget build(BuildContext context) {
+    final db = FirebaseFirestore.instance;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gestion des Produits"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep),
-            onPressed: delSelectedProduits, 
-            tooltip: 'Supprimer la sélection',
-          ),
-        ],
+        title: const Text("Liste des Produits"),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: addProduit,
+        onPressed: () => addProduit(context),
         child: const Icon(Icons.add),
       ),
-      body: liste.isEmpty
-          ? const Center(child: Text("Aucun produit. Ajoutez-en un !")) // Message si la liste est vide
-          : ListView.builder(
-              itemCount: liste.length,
-              itemBuilder: (context, index) {
-                final produit = liste[index]; 
-                return ProduitBox(
-                  produit: produit, 
-                  onChanged: (value) => onChanged(value, index),
-                  delProduit: () => delProduit(index),
-                  // Point 5 : Navigation vers la page de détails lors du tap
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProduitDetails(produit: produit),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: db.collection('produits').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                "Erreur : ${snapshot.error}",
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snapshot.data!.docs;
+          if (docs.isEmpty) {
+            return const Center(
+              child: Text("Aucun produit n'est disponible."),
+            );
+          }
+
+          // On mappe chaque document Firestore vers un objet Produit (de Drift) pour réutiliser ProduitBox/Details.
+          final List<Produit> liste = docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return Produit(
+              id: 0, // l'id Firestore est string, on ne l'utilise plus pour supprimer
+              libelle: data['libelle'] ?? '',
+              description: data['description'],
+              prix: (data['prix'] ?? 0).toDouble(),
+              photo: (data['photo'] as String?) ?? '',
+            );
+          }).toList();
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final produit = liste[index];
+              final docId = docs[index].id;
+
+              return ProduitBox(
+                produit: produit,
+                onChanged: null,
+                delProduit: () => _deleteProduit(docId), // on supprime via Firestore
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProduitDetails(produit: produit),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
